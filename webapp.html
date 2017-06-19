@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Buscador Centros Bip</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+</head>
+<body>
+
+<h1>Puntos de recarga Bip! en estaciones de Metro</h1>
+
+<p id="OperationMessage"></p>
+
+Ingresa radio de búsqueda (en mts): <input type="number" id="radioInput">
+<button type="button" onclick="updateBipCenters()">Actualizar</button>
+
+<br></br>
+
+<div id="map" style="width:100%;height:600px;"></div>
+
+<script>
+
+var operationMessage = document.getElementById("OperationMessage");
+var map;
+
+var bipMarkers = [];
+var myLatitude;
+var myLongitude;
+var radio;
+
+var activeInfoWindow;
+
+function initializeMap(position) {
+  
+  myLatitude = position.coords.latitude;
+  myLongitude = position.coords.longitude;
+  radio = Number.MAX_SAFE_INTEGER;
+
+	var myPosition = new google.maps.LatLng(myLatitude,myLongitude);
+	
+	//El centro del mapa será el punto medio entre la ubicacion actual y el centro de santiago
+	var latitudSantiagoCentro= -33.45;
+	var longitudSantiagoCentro= -70.6667;
+	var mapCenter = new google.maps.LatLng(
+		(latitudSantiagoCentro+myLatitude)/2,
+		(longitudSantiagoCentro+myLongitude)/2
+	);
+
+  var mapCanvas = document.getElementById("map");
+  var mapOptions = {center: mapCenter, zoom: 11};
+  
+  map = new google.maps.Map(mapCanvas, mapOptions);
+  var marker = new google.maps.Marker({position:myPosition});
+  marker.setMap(map);
+
+  getBipCentersAsync(myLatitude, myLongitude, radio);
+
+}
+
+
+function createBipMarker(latitude, longitude, nombre)
+{
+  var pos = new google.maps.LatLng(latitude,longitude);
+  var marker = new google.maps.Marker({
+		position: pos,
+		icon: {
+    url: "tarjeta-bip.png", // url
+    scaledSize: new google.maps.Size(20,20), // scaled size
+    origin: new google.maps.Point(0,0), // origin
+    anchor: new google.maps.Point(0, 0) // anchor
+		}
+	});
+  marker.setMap(map);
+  
+  google.maps.event.addListener(marker, 'click', function(event) {
+  	showMarkerInfo(map, marker, latitude, longitude, nombre);
+  });
+
+  bipMarkers.push(marker);
+
+
+
+}
+
+function showMarkerInfo(map, marker, latitude, longitude, nombre){
+
+  var infowindow = new google.maps.InfoWindow({
+	  content: nombre
+	});
+
+  if ("undefined" !== typeof activeInfoWindow)
+	  activeInfoWindow.close(map,marker);
+
+  infowindow.open(map,marker);
+  activeInfoWindow = infowindow;
+  
+
+}
+
+function getLocation() {
+	if (navigator.geolocation) {
+
+		//Retorno de getCurrentPosition, la posición, se entrega al método initializeMap
+		navigator.geolocation.getCurrentPosition(initializeMap);
+
+	} else { 
+		operationMessage.innerHTML = "Geolocalización no soportada por este explorador.";
+	}
+}
+
+
+function getBipCentersAsync(latitud, longitud, radio)
+{
+
+    var xmlHttp = new XMLHttpRequest();
+
+    xmlHttp.onreadystatechange = function() { 
+
+        if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
+        {
+          var jsonResponse = JSON.parse(xmlHttp.responseText);
+         
+          jsonResponse.forEach(function(centro_bip) {
+					    
+          		var lat = centro_bip["LATITUD"];
+          		var lon = centro_bip["LONGITUD"];
+          		var nombre = centro_bip["NOMBRE FANTASIA"];
+          		createBipMarker(lat,lon, nombre);
+					});
+        }
+    }
+
+    var url = "http://127.0.0.1:9000/bipcenters?latitud="+latitud+"&longitud="+longitud+"&radio="+radio;
+
+    xmlHttp.open("GET", url, true); // true for 
+    xmlHttp.send(null);
+
+
+    
+}
+
+function updateBipCenters() {
+	console.log("hola");
+	radio=document.getElementById("radioInput").value;
+
+ 	//Borrar marcadores actuales
+	for(i=0; i<bipMarkers.length; i++){
+      bipMarkers[i].setMap(null);
+  }
+
+	getBipCentersAsync(myLatitude,myLongitude,radio);
+}
+
+
+
+
+</script>
+
+
+
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAONpowkqVRWPdvRzCJ5olhOJGhQnMSfaE&callback=getLocation"></script>
+
+
+
+<!--
+To use this code on your website, get a free API key from Google.
+Read more at: https://www.w3schools.com/graphics/google_maps_basic.asp
+-->
+
+
+
+</body>
+</html>
